@@ -8,6 +8,10 @@ record HostName where
   host_name_text : String
 
 public export
+host_name_string : HostName → String
+host_name_string (MkHostName text) = text
+
+public export
 record DestinationPort where
   constructor MkDestinationPort
   destination_port_bits : Bits16
@@ -37,14 +41,30 @@ record RequestTarget where
   request_target_text : String
 
 public export
+request_target_string : RequestTarget → String
+request_target_string (MkRequestTarget text) = text
+
+public export
 record HttpBody where
   constructor MkHttpBody
   http_body_text : String
 
 public export
+http_body_from_string : String → HttpBody
+http_body_from_string text = MkHttpBody text
+
+public export
+http_body_string : HttpBody → String
+http_body_string (MkHttpBody text) = text
+
+public export
 record ByteCount where
   constructor MkByteCount
   byte_count_value : ℕ
+
+public export
+byte_count_number : ByteCount → ℕ
+byte_count_number (MkByteCount number) = number
 
 public export
 choice network_scheme one_of
