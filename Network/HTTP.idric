@@ -256,6 +256,10 @@ record HttpRequestHead where
   request_head_text : String
 
 public export
+http_request_head_text : HttpRequestHead → String
+http_request_head_text (MkHttpRequestHead text) = text
+
+public export
 record RenderedRequest where
   constructor MkRenderedRequest
   request_head : HttpRequestHead
@@ -297,4 +301,4 @@ render_request : request → String
 render_request value =
   case render_request_parts value of
     MkRenderedRequest wire_head body _ =>
-      request_head_text wire_head ++ http_body_text body
+      http_request_head_text wire_head ++ http_body_text body
