@@ -114,29 +114,71 @@ render_utf8_post =
           http_body_text body == "café" &&
           byte_count_value body_length == 5
 
+transport_zero : Bool
+transport_zero =
+  case transport_result_from_native_code 0 of
+    Right transport_ok => True
+    _ => False
+
+transport_two : Bool
+transport_two =
+  case transport_result_from_native_code 2 of
+    Right invalid_request => True
+    _ => False
+
+transport_three : Bool
+transport_three =
+  case transport_result_from_native_code 3 of
+    Right invalid_endpoint => True
+    _ => False
+
+transport_four : Bool
+transport_four =
+  case transport_result_from_native_code 4 of
+    Right tcp_connect_failed => True
+    _ => False
+
+transport_five : Bool
+transport_five =
+  case transport_result_from_native_code 5 of
+    Right tls_connect_failed => True
+    _ => False
+
+transport_six : Bool
+transport_six =
+  case transport_result_from_native_code 6 of
+    Right request_write_failed => True
+    _ => False
+
+transport_seven : Bool
+transport_seven =
+  case transport_result_from_native_code 7 of
+    Right response_read_failed => True
+    _ => False
+
+transport_eight : Bool
+transport_eight =
+  case transport_result_from_native_code 8 of
+    Right redirect_failed => True
+    _ => False
+
+transport_one_rejected : Bool
+transport_one_rejected =
+  case transport_result_from_native_code 1 of
+    Left _ => True
+    Right _ => False
+
 transport_domain : Bool
 transport_domain =
-  case ( transport_result_from_native_code 0
-       , transport_result_from_native_code 2
-       , transport_result_from_native_code 3
-       , transport_result_from_native_code 4
-       , transport_result_from_native_code 5
-       , transport_result_from_native_code 6
-       , transport_result_from_native_code 7
-       , transport_result_from_native_code 8
-       , transport_result_from_native_code 1
-       ) of
-    ( Right transport_ok
-      , Right invalid_request
-      , Right invalid_endpoint
-      , Right tcp_connect_failed
-      , Right tls_connect_failed
-      , Right request_write_failed
-      , Right response_read_failed
-      , Right redirect_failed
-      , Left _
-      ) => True
-    _ => False
+  transport_zero &&
+  transport_two &&
+  transport_three &&
+  transport_four &&
+  transport_five &&
+  transport_six &&
+  transport_seven &&
+  transport_eight &&
+  transport_one_rejected
 
 all_pass : Bool
 all_pass =
