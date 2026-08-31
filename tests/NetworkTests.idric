@@ -1,0 +1,168 @@
+module Main
+
+import Network.Types
+import Network.URL
+import Network.HTTP
+import Network.Transport
+import System
+
+%default total
+
+check : String → Bool → IO ()
+check name True = putStrLn ("ok   " ++ name)
+check name False = putStrLn ("FAIL " ++ name)
+
+port_bounds : Bool
+port_bounds =
+  case ( destination_port_from_integer 1
+       , destination_port_from_integer 65535
+       , destination_port_from_integer 0
+       , destination_port_from_integer 65536
+       ) of
+    (Right low, Right high, Left _, Left _) =>
+      destination_port_number low == 1 &&
+      destination_port_number high == 65535
+    _ => False
+
+status_bounds : Bool
+status_bounds =
+  case ( http_status_code_from_integer 100
+       , http_status_code_from_integer 599
+       , http_status_code_from_integer 99
+       , http_status_code_from_integer 600
+       ) of
+    (Right low, Right high, Left _, Left _) =>
+      http_status_number low == 100 && http_status_number high == 599
+    _ => False
+
+not_found_semantics : Bool
+not_found_semantics =
+  http_status_number not_found == 404 &&
+  case http_status_class_of not_found of
+    client_error => True
+    _ => False
+
+unregistered_4xx_class : Bool
+unregistered_4xx_class =
+  case http_status_code_from_integer 471 of
+    Left _ => False
+    Right status =>
+      case http_status_class_of status of
+        client_error => True
+        _ => False
+
+method_semantics : Bool
+method_semantics =
+  method_is_safe get_method &&
+  method_is_idempotent get_method &&
+  not (method_is_safe post_method) &&
+  not (method_is_idempotent post_method) &&
+  not (method_is_safe put_method) &&
+  method_is_idempotent put_method
+
+url_semantics : Bool
+url_semantics =
+  case parse_url "https://example.com/a?b=1#ignored" of
+    Right (https_url name destination_port request_target) =>
+      host_name_text name == "example.com" &&
+      destination_port_number destination_port == 443 &&
+      request_target_text request_target == "/a?b=1"
+    _ => False
+
+same_origin_semantics : Bool
+same_origin_semantics =
+  case (parse_url "https://Example.com/a", parse_url "https://example.com/b") of
+    (Right left, Right right) => same_origin (origin left) (origin right)
+    _ => False
+
+utf8_lengths : Bool
+utf8_lengths =
+  byte_count_value (utf8_byte_length "") == 0 &&
+  byte_count_value (utf8_byte_length "ASCII") == 5 &&
+  byte_count_value (utf8_byte_length "café") == 5 &&
+  byte_count_value (utf8_byte_length "Aé€🙂") == 10
+
+render_get : Bool
+render_get =
+  case parse_url "http://example.com/" of
+    Left _ => False
+    Right target_url =>
+      render_request (get target_url) ==
+        ("GET / HTTP/1.0\r\n" ++
+         "Host: example.com\r\n" ++
+         "Connection: close\r\n" ++
+         "Accept-Encoding: identity\r\n" ++
+         "User-Agent: idric-net/0.1\r\n" ++
+         "\r\n")
+
+render_utf8_post : Bool
+render_utf8_post =
+  case parse_url "https://example.com/message" of
+    Left _ => False
+    Right target_url =>
+      case render_request_parts (post target_url (MkHttpBody "café")) of
+        MkRenderedRequest wire_head body body_length =>
+          request_head_text wire_head ==
+            ("POST /message HTTP/1.0\r\n" ++
+             "Host: example.com\r\n" ++
+             "Connection: close\r\n" ++
+             "Accept-Encoding: identity\r\n" ++
+             "User-Agent: idric-net/0.1\r\n" ++
+             "Content-Type: text/plain; charset=utf-8\r\n" ++
+             "Content-Length: 5\r\n" ++
+             "\r\n") &&
+          http_body_text body == "café" &&
+          byte_count_value body_length == 5
+
+transport_domain : Bool
+transport_domain =
+  case ( transport_result_from_native_code 0
+       , transport_result_from_native_code 2
+       , transport_result_from_native_code 3
+       , transport_result_from_native_code 4
+       , transport_result_from_native_code 5
+       , transport_result_from_native_code 6
+       , transport_result_from_native_code 7
+       , transport_result_from_native_code 8
+       , transport_result_from_native_code 1
+       ) of
+    ( Right transport_ok
+      , Right invalid_request
+      , Right invalid_endpoint
+      , Right tcp_connect_failed
+      , Right tls_connect_failed
+      , Right request_write_failed
+      , Right response_read_failed
+      , Right redirect_failed
+      , Left _
+      ) => True
+    _ => False
+
+all_pass : Bool
+all_pass =
+  port_bounds &&
+  status_bounds &&
+  not_found_semantics &&
+  unregistered_4xx_class &&
+  method_semantics &&
+  url_semantics &&
+  same_origin_semantics &&
+  utf8_lengths &&
+  render_get &&
+  render_utf8_post &&
+  transport_domain
+
+main : IO ()
+main = do
+  check "destination port bounds" port_bounds
+  check "HTTP status bounds" status_bounds
+  check "404 is not_found and client_error" not_found_semantics
+  check "unregistered 4xx remains client_error" unregistered_4xx_class
+  check "HTTP method semantic properties" method_semantics
+  check "typed URL parse" url_semantics
+  check "origin comparison is case-insensitive for host" same_origin_semantics
+  check "UTF-8 byte lengths" utf8_lengths
+  check "GET wire rendering" render_get
+  check "POST body length follows UTF-8 bytes" render_utf8_post
+  check "transport result admits only the eight native meanings" transport_domain
+  if all_pass then pure () else exitFailure
