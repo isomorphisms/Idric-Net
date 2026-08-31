@@ -1,0 +1,127 @@
+module Network.Types
+
+%default total
+
+public export
+record HostName where
+  constructor MkHostName
+  host_name_text : String
+
+public export
+host_name_string : HostName → String
+host_name_string (MkHostName text) = text
+
+public export
+record DestinationPort where
+  constructor MkDestinationPort
+  destination_port_bits : Bits16
+
+public export
+destination_port_from_integer : Integer → Either String DestinationPort
+destination_port_from_integer number =
+  if number >= 1 && number <= 65535
+    then Right (MkDestinationPort (cast number))
+    else Left "destination port must be between 1 and 65535"
+
+public export
+destination_port_number : DestinationPort → Int
+destination_port_number (MkDestinationPort number) = cast number
+
+public export
+http_destination_port : DestinationPort
+http_destination_port = MkDestinationPort 80
+
+public export
+https_destination_port : DestinationPort
+https_destination_port = MkDestinationPort 443
+
+public export
+record RequestTarget where
+  constructor MkRequestTarget
+  request_target_text : String
+
+public export
+request_target_string : RequestTarget → String
+request_target_string (MkRequestTarget text) = text
+
+public export
+record HttpBody where
+  constructor MkHttpBody
+  http_body_text : String
+
+public export
+http_body_from_string : String → HttpBody
+http_body_from_string text = MkHttpBody text
+
+public export
+http_body_string : HttpBody → String
+http_body_string (MkHttpBody text) = text
+
+public export
+record ByteCount where
+  constructor MkByteCount
+  byte_count_value : ℕ
+
+public export
+byte_count_number : ByteCount → ℕ
+byte_count_number (MkByteCount number) = number
+
+public export
+choice network_scheme one_of
+  http_scheme
+  https_scheme
+
+public export
+record Origin where
+  constructor MkOrigin
+  origin_scheme : network_scheme
+  origin_host : HostName
+  origin_port : DestinationPort
+
+ascii_lower : Char → Char
+ascii_lower character =
+  if character >= 'A' && character <= 'Z'
+    then chr (ord character + 32)
+    else character
+
+ascii_equal : List Char → List Char → Bool
+ascii_equal [] [] = True
+ascii_equal [] _ = False
+ascii_equal _ [] = False
+ascii_equal (left :: remaining_left) (right :: remaining_right) =
+  ascii_lower left == ascii_lower right &&
+  ascii_equal remaining_left remaining_right
+
+same_scheme : network_scheme → network_scheme → Bool
+same_scheme http_scheme http_scheme = True
+same_scheme https_scheme https_scheme = True
+same_scheme _ _ = False
+
+public export
+same_origin : Origin → Origin → Bool
+same_origin left right =
+  same_scheme left.origin_scheme right.origin_scheme &&
+  destination_port_number left.origin_port == destination_port_number right.origin_port &&
+  ascii_equal
+    (unpack (host_name_text left.origin_host))
+    (unpack (host_name_text right.origin_host))
+
+utf8_character_bytes : Char → ℕ
+utf8_character_bytes character =
+  let code = ord character in
+    if code <= 127
+      then 1
+      else if code <= 2047
+        then 2
+        else if code <= 65535
+          then 3
+          else 4
+
+utf8_byte_length_characters : List Char → ℕ
+utf8_byte_length_characters [] = 0
+utf8_byte_length_characters (character :: rest) =
+  utf8_character_bytes character + utf8_byte_length_characters rest
+
+public export
+utf8_byte_length : String → ByteCount
+utf8_byte_length text = MkByteCount (utf8_byte_length_characters (unpack text))

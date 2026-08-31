@@ -1,0 +1,44 @@
+name: Idric-Net CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  typed-network:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Idric-Net
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Checkout Idriç compiler
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: isomorphisms/Idric
+          ref: 47557b43053c829d4f8aa1581007002b57f9c59f
+          path: .tools/Idric
+
+      - name: Install compiler bootstrap dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends chezscheme
+
+      - name: Build Idriç compiler
+        run: |
+          make -C "$GITHUB_WORKSPACE/.tools/Idric" bootstrap SCHEME=scheme
+          "$GITHUB_WORKSPACE/.tools/Idric/build/exec/idris2" --version
+
+      - name: Build and run Idric-Net semantic tests
+        env:
+          IDRIS2_PREFIX: ${{ github.workspace }}/.tools/Idric/bootstrap-build
+        run: |
+          make test IDRIC="$GITHUB_WORKSPACE/.tools/Idric/build/exec/idris2"
+
+      - name: Verify ai-ci contract
+        uses: isomorphisms/ai-ci@a1c4c50970af13c59d25aabce737ca7c09451c22
+        with:
+          suite: ci/ai-ci.suite.tsv
+          root: .

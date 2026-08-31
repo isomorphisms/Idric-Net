@@ -1,0 +1,38 @@
+module Network.Transport
+
+%default total
+
+public export
+choice transport_result one_of
+  transport_ok
+  invalid_request
+  invalid_endpoint
+  tcp_connect_failed
+  tls_connect_failed
+  request_write_failed
+  response_read_failed
+  redirect_failed
+
+public export
+transport_result_from_native_code : Int → Either String transport_result
+transport_result_from_native_code 0 = Right transport_ok
+transport_result_from_native_code 2 = Right invalid_request
+transport_result_from_native_code 3 = Right invalid_endpoint
+transport_result_from_native_code 4 = Right tcp_connect_failed
+transport_result_from_native_code 5 = Right tls_connect_failed
+transport_result_from_native_code 6 = Right request_write_failed
+transport_result_from_native_code 7 = Right response_read_failed
+transport_result_from_native_code 8 = Right redirect_failed
+transport_result_from_native_code _ =
+  Left "native transport returned an unknown result code"
+
+public export
+process_exit_status : transport_result → Int
+process_exit_status transport_ok = 0
+process_exit_status invalid_request = 2
+process_exit_status invalid_endpoint = 3
+process_exit_status tcp_connect_failed = 4
+process_exit_status tls_connect_failed = 5
+process_exit_status request_write_failed = 6
+process_exit_status response_read_failed = 7
+process_exit_status redirect_failed = 8
