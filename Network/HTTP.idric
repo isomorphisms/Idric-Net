@@ -251,6 +251,11 @@ choice request one_of
   post url HttpBody
 
 public export
+request_url : request → url
+request_url (get target_url) = target_url
+request_url (post target_url _) = target_url
+
+public export
 record HttpRequestHead where
   constructor MkHttpRequestHead
   request_head_text : String
@@ -265,6 +270,18 @@ record RenderedRequest where
   request_head : HttpRequestHead
   request_body : HttpBody
   request_body_length : ByteCount
+
+public export
+rendered_request_head : RenderedRequest → HttpRequestHead
+rendered_request_head (MkRenderedRequest wire_head _ _) = wire_head
+
+public export
+rendered_request_body : RenderedRequest → HttpBody
+rendered_request_body (MkRenderedRequest _ body _) = body
+
+public export
+rendered_request_body_length : RenderedRequest → ByteCount
+rendered_request_body_length (MkRenderedRequest _ _ body_length) = body_length
 
 request_line : http_method → url → String
 request_line method target_url =
