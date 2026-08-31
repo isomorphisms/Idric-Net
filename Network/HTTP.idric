@@ -1,0 +1,300 @@
+module Network.HTTP
+
+import Network.Types
+import Network.URL
+
+%default total
+
+public export
+choice http_method one_of
+  get_method
+  post_method
+  head_method
+  put_method
+  delete_method
+  options_method
+  trace_method
+  connect_method
+  patch_method
+  extension_method String
+
+public export
+method_text : http_method → String
+method_text get_method = "GET"
+method_text post_method = "POST"
+method_text head_method = "HEAD"
+method_text put_method = "PUT"
+method_text delete_method = "DELETE"
+method_text options_method = "OPTIONS"
+method_text trace_method = "TRACE"
+method_text connect_method = "CONNECT"
+method_text patch_method = "PATCH"
+method_text (extension_method text) = text
+
+public export
+method_is_safe : http_method → Bool
+method_is_safe get_method = True
+method_is_safe head_method = True
+method_is_safe options_method = True
+method_is_safe trace_method = True
+method_is_safe _ = False
+
+public export
+method_is_idempotent : http_method → Bool
+method_is_idempotent get_method = True
+method_is_idempotent head_method = True
+method_is_idempotent put_method = True
+method_is_idempotent delete_method = True
+method_is_idempotent options_method = True
+method_is_idempotent trace_method = True
+method_is_idempotent _ = False
+
+public export
+record HTTPStatusCode where
+  constructor MkHTTPStatusCode
+  http_status_bits : Bits16
+
+public export
+http_status_code_from_integer : Integer → Either String HTTPStatusCode
+http_status_code_from_integer number =
+  if number >= 100 && number <= 599
+    then Right (MkHTTPStatusCode (cast number))
+    else Left "HTTP status code must be between 100 and 599"
+
+public export
+http_status_number : HTTPStatusCode → Int
+http_status_number (MkHTTPStatusCode number) = cast number
+
+public export
+choice http_status_class one_of
+  informational
+  successful
+  redirection
+  client_error
+  server_error
+
+public export
+http_status_class_of : HTTPStatusCode → http_status_class
+http_status_class_of status =
+  let number = http_status_number status in
+    if number < 200
+      then informational
+      else if number < 300
+        then successful
+        else if number < 400
+          then redirection
+          else if number < 500
+            then client_error
+            else server_error
+
+public export
+continue_status : HTTPStatusCode
+continue_status = MkHTTPStatusCode 100
+
+public export
+ok : HTTPStatusCode
+ok = MkHTTPStatusCode 200
+
+public export
+created : HTTPStatusCode
+created = MkHTTPStatusCode 201
+
+public export
+no_content : HTTPStatusCode
+no_content = MkHTTPStatusCode 204
+
+public export
+moved_permanently : HTTPStatusCode
+moved_permanently = MkHTTPStatusCode 301
+
+public export
+found : HTTPStatusCode
+found = MkHTTPStatusCode 302
+
+public export
+see_other : HTTPStatusCode
+see_other = MkHTTPStatusCode 303
+
+public export
+temporary_redirect : HTTPStatusCode
+temporary_redirect = MkHTTPStatusCode 307
+
+public export
+permanent_redirect : HTTPStatusCode
+permanent_redirect = MkHTTPStatusCode 308
+
+public export
+bad_request : HTTPStatusCode
+bad_request = MkHTTPStatusCode 400
+
+public export
+unauthorized : HTTPStatusCode
+unauthorized = MkHTTPStatusCode 401
+
+public export
+forbidden : HTTPStatusCode
+forbidden = MkHTTPStatusCode 403
+
+public export
+not_found : HTTPStatusCode
+not_found = MkHTTPStatusCode 404
+
+public export
+method_not_allowed : HTTPStatusCode
+method_not_allowed = MkHTTPStatusCode 405
+
+public export
+gone : HTTPStatusCode
+gone = MkHTTPStatusCode 410
+
+public export
+too_many_requests : HTTPStatusCode
+too_many_requests = MkHTTPStatusCode 429
+
+public export
+internal_server_error : HTTPStatusCode
+internal_server_error = MkHTTPStatusCode 500
+
+public export
+bad_gateway : HTTPStatusCode
+bad_gateway = MkHTTPStatusCode 502
+
+public export
+service_unavailable : HTTPStatusCode
+service_unavailable = MkHTTPStatusCode 503
+
+public export
+gateway_timeout : HTTPStatusCode
+gateway_timeout = MkHTTPStatusCode 504
+
+public export
+is_redirect_status : HTTPStatusCode → Bool
+is_redirect_status status =
+  let number = http_status_number status in
+    number == 301 || number == 302 || number == 303 ||
+    number == 307 || number == 308
+
+public export
+record HeaderName where
+  constructor MkHeaderName
+  header_name_text : String
+
+public export
+record HeaderValue where
+  constructor MkHeaderValue
+  header_value_text : String
+
+public export
+record HttpHeader where
+  constructor MkHttpHeader
+  header_name : HeaderName
+  header_value : HeaderValue
+
+ascii_lower : Char → Char
+ascii_lower character =
+  if character >= 'A' && character <= 'Z'
+    then chr (ord character + 32)
+    else character
+
+ascii_equal : List Char → List Char → Bool
+ascii_equal [] [] = True
+ascii_equal [] _ = False
+ascii_equal _ [] = False
+ascii_equal (left :: remaining_left) (right :: remaining_right) =
+  ascii_lower left == ascii_lower right &&
+  ascii_equal remaining_left remaining_right
+
+header_named : String → HeaderName → Bool
+header_named wanted actual =
+  ascii_equal (unpack wanted) (unpack (header_name_text actual))
+
+public export
+choice http_header_kind one_of
+  ordinary_header
+  credential_header
+  framing_header
+
+public export
+classify_header : HeaderName → http_header_kind
+classify_header name =
+  if header_named "Authorization" name || header_named "Cookie" name
+    then credential_header
+    else if header_named "Connection" name ||
+            header_named "Content-Length" name ||
+            header_named "Transfer-Encoding" name
+      then framing_header
+      else ordinary_header
+
+public export
+header : String → String → HttpHeader
+header name value = MkHttpHeader (MkHeaderName name) (MkHeaderValue value)
+
+render_header : HttpHeader → String
+render_header (MkHttpHeader name value) =
+  header_name_text name ++ ": " ++ header_value_text value ++ "\r\n"
+
+render_headers : List HttpHeader → String
+render_headers [] = ""
+render_headers (current :: rest) = render_header current ++ render_headers rest
+
+common_headers : url → List HttpHeader
+common_headers target_url =
+  header "Host" (authority target_url) ::
+  header "Connection" "close" ::
+  header "Accept-Encoding" "identity" ::
+  header "User-Agent" "idric-net/0.1" ::
+  []
+
+public export
+choice request one_of
+  get url
+  post url HttpBody
+
+public export
+record HttpRequestHead where
+  constructor MkHttpRequestHead
+  request_head_text : String
+
+public export
+record RenderedRequest where
+  constructor MkRenderedRequest
+  request_head : HttpRequestHead
+  request_body : HttpBody
+  request_body_length : ByteCount
+
+request_line : http_method → url → String
+request_line method target_url =
+  method_text method ++ " " ++
+  request_target_text (target target_url) ++
+  " HTTP/1.0\r\n"
+
+public export
+render_request_parts : request → RenderedRequest
+render_request_parts (get target_url) =
+  let wire_head =
+        request_line get_method target_url ++
+        render_headers (common_headers target_url) ++
+        "\r\n"
+  in MkRenderedRequest
+       (MkHttpRequestHead wire_head)
+       (MkHttpBody "")
+       (MkByteCount 0)
+render_request_parts (post target_url body) =
+  let body_length = utf8_byte_length (http_body_text body)
+      post_headers =
+        common_headers target_url ++
+        (header "Content-Type" "text/plain; charset=utf-8" ::
+         header "Content-Length" (show (byte_count_value body_length)) ::
+         [])
+      wire_head =
+        request_line post_method target_url ++
+        render_headers post_headers ++
+        "\r\n"
+  in MkRenderedRequest (MkHttpRequestHead wire_head) body body_length
+
+public export
+render_request : request → String
+render_request value =
+  case render_request_parts value of
+    MkRenderedRequest wire_head body _ =>
+      request_head_text wire_head ++ http_body_text body
