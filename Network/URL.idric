@@ -1,0 +1,156 @@
+module Network.URL
+
+import Network.Types
+
+%default total
+
+public export
+choice url one_of
+  http_url HostName DestinationPort RequestTarget
+  https_url HostName DestinationPort RequestTarget
+
+strip_prefix : List Char → List Char → Maybe (List Char)
+strip_prefix [] input = Just input
+strip_prefix _ [] = Nothing
+strip_prefix (expected :: remaining_prefix) (actual :: input) =
+  if expected == actual
+    then strip_prefix remaining_prefix input
+    else Nothing
+
+split_authority : List Char → (List Char, List Char)
+split_authority [] = ([], [])
+split_authority input@(character :: rest) =
+  case character of
+    '/' => ([], input)
+    '?' => ([], '/' :: input)
+    '#' => ([], [])
+    _ =>
+      let (authority, target) = split_authority rest in
+        (character :: authority, target)
+
+split_port : List Char → (List Char, Maybe (List Char))
+split_port [] = ([], Nothing)
+split_port (':' :: rest) = ([], Just rest)
+split_port (character :: rest) =
+  let (host_characters, port_text) = split_port rest in
+    (character :: host_characters, port_text)
+
+digit_value : Char → Maybe ℕ
+digit_value '0' = Just 0
+digit_value '1' = Just 1
+digit_value '2' = Just 2
+digit_value '3' = Just 3
+digit_value '4' = Just 4
+digit_value '5' = Just 5
+digit_value '6' = Just 6
+digit_value '7' = Just 7
+digit_value '8' = Just 8
+digit_value '9' = Just 9
+digit_value _ = Nothing
+
+parse_digits : ℕ → List Char → Maybe ℕ
+parse_digits accumulated [] = Just accumulated
+parse_digits accumulated (character :: rest) =
+  case digit_value character of
+    Nothing => Nothing
+    Just digit => parse_digits (accumulated * 10 + digit) rest
+
+parse_destination_port : List Char → Either String DestinationPort
+parse_destination_port [] = Left "destination port is empty"
+parse_destination_port characters =
+  case parse_digits 0 characters of
+    Nothing => Left "destination port must contain only decimal digits"
+    Just number => destination_port_from_integer (cast number)
+
+drop_fragment : List Char → List Char
+drop_fragment [] = []
+drop_fragment ('#' :: _) = []
+drop_fragment (character :: rest) = character :: drop_fragment rest
+
+visible_http_character : Char → Bool
+visible_http_character character =
+  ord character > 32 && ord character < 127
+
+safe_authority_character : Char → Bool
+safe_authority_character character =
+  visible_http_character character && character /= '@'
+
+all_characters : (Char → Bool) → List Char → Bool
+all_characters predicate [] = True
+all_characters predicate (character :: rest) =
+  predicate character && all_characters predicate rest
+
+make_url :
+  (HostName → DestinationPort → RequestTarget → url) →
+  DestinationPort →
+  List Char →
+  Either String url
+make_url build_url default_port input =
+  let (authority_characters, raw_target) = split_authority input
+      request_characters = drop_fragment raw_target
+      (host_characters, port_text) = split_port authority_characters
+      target_text = pack request_characters
+      normalized_target = if target_text == "" then "/" else target_text
+  in if not (all_characters safe_authority_character authority_characters)
+       then Left "URL authority must be visible ASCII without userinfo"
+       else if not (all_characters visible_http_character request_characters)
+         then Left "URL target must be visible ASCII; percent-encode spaces or Unicode"
+         else case host_characters of
+           [] => Left "URL host is empty"
+           _ =>
+             let host_name = MkHostName (pack host_characters)
+                 request_target = MkRequestTarget normalized_target
+             in case port_text of
+               Nothing => Right (build_url host_name default_port request_target)
+               Just characters =>
+                 case parse_destination_port characters of
+                   Left problem => Left problem
+                   Right destination_port =>
+                     Right (build_url host_name destination_port request_target)
+
+public export
+parse_url : String → Either String url
+parse_url text =
+  case strip_prefix (unpack "http://") (unpack text) of
+    Just rest => make_url http_url http_destination_port rest
+    Nothing =>
+      case strip_prefix (unpack "https://") (unpack text) of
+        Just rest => make_url https_url https_destination_port rest
+        Nothing => Left "URL must begin with http:// or https://"
+
+public export
+host : url → HostName
+host (http_url name _ _) = name
+host (https_url name _ _) = name
+
+public export
+port : url → DestinationPort
+port (http_url _ destination_port _) = destination_port
+port (https_url _ destination_port _) = destination_port
+
+public export
+target : url → RequestTarget
+target (http_url _ _ request_target) = request_target
+target (https_url _ _ request_target) = request_target
+
+public export
+secure : url → Bool
+secure (http_url _ _ _) = False
+secure (https_url _ _ _) = True
+
+public export
+origin : url → Origin
+origin (http_url name destination_port _) =
+  MkOrigin http_scheme name destination_port
+origin (https_url name destination_port _) =
+  MkOrigin https_scheme name destination_port
+
+public export
+authority : url → String
+authority value =
+  let number = destination_port_number (port value)
+      default_number = if secure value then 443 else 80
+      name = host_name_text (host value)
+  in if number == default_number
+       then name
+       else name ++ ":" ++ show number
