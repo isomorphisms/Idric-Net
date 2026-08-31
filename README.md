@@ -54,6 +54,16 @@ The migration order is:
 3. move the reusable native socket/TLS provider under this repository;
 4. replace native pieces with Idriç/Odriç implementations only when executable acceptance proves the new owner.
 
+## Research ledger
+
+The design research is kept at the repository top level so the architectural sources do not get buried:
+
+- [`ML-NETWORKING.md`](ML-NETWORKING.md) records the Standard ML, OCaml, Lwt/Async, Eio, MirageOS, Conduit, and Cohttp networking precedents and the specific ideas Idric-Net should adopt or reject.
+- [`PROTOCOL-SOURCES.md`](PROTOCOL-SOURCES.md) records the RFC/IANA authority behind URI, HTTP, service ports, IP protocol numbers, TCP, UDP, TLS service identity, and the future resolver boundary.
+- [`CONSTRAINTS.md`](CONSTRAINTS.md) records which of those semantic facts should be visible to the Idriç/Odriç type checker and survive lowering.
+
+These are complementary: implementation precedents inform the shape of the interface; standards and registries define protocol meaning and wire encodings; the compiler supplies reusable mechanisms for expressing the resulting constraints.
+
 ## Compiler pin
 
 CI uses the exact Idriç compiler revision recorded in `.github/workflows/ci.yml`. `.idric` source is mapped to GitHub Linguist's Idris grammar through `.gitattributes`.
