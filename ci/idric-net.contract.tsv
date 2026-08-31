@@ -1,0 +1,10 @@
+nonempty	IDRICNET-README	README.md
+nonempty	IDRICNET-CONSTRAINTS	CONSTRAINTS.md
+contains	IDRICNET-OWNER	README.md	ICU is its first real dogfood client
+contains	IDRICNET-PORT-CONSTRAINT	CONSTRAINTS.md	DestinationPort : ℕ where
+contains	IDRICNET-STATUS-CONSTRAINT	CONSTRAINTS.md	HTTPStatusCode : ℕ where
+contains	IDRICNET-NOT-FOUND	Network/HTTP.idric	not_found = MkHTTPStatusCode 404
+contains	IDRICNET-STATUS-CLASS	Network/HTTP.idric	client_error
+contains	IDRICNET-TRANSPORT-CHOICE	Network/Transport.idric	choice transport_result one_of
+not_contains	IDRICNET-NO-EXIT-INT-RECORD	Network/Transport.idric	record TransportExitStatus
+contains	IDRICNET-PACKAGE	idric-net.ipkg	modules = Network.Types, Network.URL, Network.HTTP, Network.Transport
