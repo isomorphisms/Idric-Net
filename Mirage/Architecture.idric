@@ -1,0 +1,109 @@
+module Mirage.Architecture
+
+%default total
+
+-- This is a small translation of MirageOS's architectural separation:
+-- applications consume protocol-facing interfaces, while those interfaces
+-- can be assembled from host sockets or from a direct stack over a device.
+
+public export
+record IPv4Address where
+  constructor MkIPv4Address
+  address_text : String
+
+public export
+record PortNumber where
+  constructor MkPortNumber
+  port_bits : Bits16
+
+public export
+record InternetEndpoint where
+  constructor MkInternetEndpoint
+  endpoint_address : IPv4Address
+  endpoint_port : PortNumber
+
+public export
+record TCPConnection where
+  constructor MkTCPConnection
+  connection_handle : Int
+
+public export
+record UDPDatagram where
+  constructor MkUDPDatagram
+  datagram_peer : InternetEndpoint
+  datagram_payload : String
+
+public export
+choice network_error one_of
+  address_error
+  connect_error
+  write_error
+  read_error
+
+-- Mirage module signatures become explicit provider values here.
+-- An application can depend on this shape without depending on POSIX,
+-- Android sockets, a scheduler, or a particular TCP implementation.
+public export
+record TCPProvider where
+  constructor MkTCPProvider
+  tcp_connect : InternetEndpoint → IO (Either network_error TCPConnection)
+  tcp_write : TCPConnection → String → IO (Either network_error ())
+  tcp_read : TCPConnection → IO (Either network_error String)
+  tcp_close : TCPConnection → IO ()
+
+public export
+record UDPProvider where
+  constructor MkUDPProvider
+  udp_send : UDPDatagram → IO (Either network_error ())
+  udp_receive : IO (Either network_error UDPDatagram)
+
+-- This is the protocol-facing object an application consumes.
+-- It says what TCP and UDP mean to the caller, not how packets move.
+public export
+record NetworkStack where
+  constructor MkNetworkStack
+  tcp : TCPProvider
+  udp : UDPProvider
+
+-- Direct-stack ingredients. A future Idriç implementation can make these
+-- much richer; for this sketch the important fact is that IP is assembled
+-- over an explicit network device rather than being identified with sockets.
+public export
+record NetworkDevice where
+  constructor MkNetworkDevice
+  device_name : String
+
+public export
+record IPProvider where
+  constructor MkIPProvider
+  ip_device : NetworkDevice
+
+public export
+record HostSocketProvider where
+  constructor MkHostSocketProvider
+  host_provider_name : String
+
+public export
+record HostSocketAssembly where
+  constructor MkHostSocketAssembly
+  host_provider : HostSocketProvider
+  host_stack : NetworkStack
+
+public export
+record DirectAssembly where
+  constructor MkDirectAssembly
+  direct_device : NetworkDevice
+  direct_ip : IPProvider
+  direct_stack : NetworkStack
+
+-- The key Mirage-like idea: the application-facing NetworkStack is common,
+-- while the assembly underneath it is explicitly different.
+public export
+choice network_assembly one_of
+  host_sockets HostSocketAssembly
+  direct_device DirectAssembly
+
+public export
+application_stack : network_assembly → NetworkStack
+application_stack (host_sockets assembly) = assembly.host_stack
+application_stack (direct_device assembly) = assembly.direct_stack
