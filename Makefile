@@ -11,8 +11,8 @@ check-vocabulary:
 		echo 'error: active Idriç source must use ℕ for natural numbers' >&2; \
 		exit 1; \
 	fi
-	@if grep -nE '(^|[^[:alnum:]_])Int([^[:alnum:]_]|$$)' $(IDRIC_SOURCES); then \
-		echo 'error: active Idriç source must not expose raw Int; use semantic types or explicit-width ABI storage' >&2; \
+	@if grep -nE '(^|[^[:alnum:]_])(Int|Integer)([^[:alnum:]_]|$$)' $(IDRIC_SOURCES); then \
+		echo 'error: active Idriç source must not expose raw signed integer types; use ℕ, semantic types, or explicit-width ABI storage' >&2; \
 		exit 1; \
 	fi
 
