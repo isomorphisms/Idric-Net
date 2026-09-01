@@ -62,8 +62,8 @@ http_status_code_from_integer number =
     else Left "HTTP status code must be between 100 and 599"
 
 public export
-http_status_number : HTTPStatusCode → Int
-http_status_number (MkHTTPStatusCode number) = cast number
+http_status_number : HTTPStatusCode → Bits16
+http_status_number (MkHTTPStatusCode number) = number
 
 public export
 choice http_status_class one_of
