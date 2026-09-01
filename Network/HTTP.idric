@@ -55,8 +55,8 @@ record HTTPStatusCode where
   http_status_bits : Bits16
 
 public export
-http_status_code_from_integer : Integer → Either String HTTPStatusCode
-http_status_code_from_integer number =
+http_status_code_from_number : ℕ → Either String HTTPStatusCode
+http_status_code_from_number number =
   if number >= 100 && number <= 599
     then Right (MkHTTPStatusCode (cast number))
     else Left "HTTP status code must be between 100 and 599"
