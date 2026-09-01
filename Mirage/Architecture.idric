@@ -23,9 +23,14 @@ record InternetEndpoint where
   endpoint_port : PortNumber
 
 public export
+record TCPConnectionHandle where
+  constructor MkTCPConnectionHandle
+  connection_handle_bits : Bits32
+
+public export
 record TCPConnection where
   constructor MkTCPConnection
-  connection_handle : Int
+  connection_handle : TCPConnectionHandle
 
 public export
 record UDPDatagram where
