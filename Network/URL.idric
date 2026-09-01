@@ -60,7 +60,7 @@ parse_destination_port [] = Left "destination port is empty"
 parse_destination_port characters =
   case parse_digits 0 characters of
     Nothing => Left "destination port must contain only decimal digits"
-    Just number => destination_port_from_integer (cast number)
+    Just number => destination_port_from_number number
 
 drop_fragment : List Char → List Char
 drop_fragment [] = []
