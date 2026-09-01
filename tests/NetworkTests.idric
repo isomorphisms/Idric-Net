@@ -14,10 +14,10 @@ check name False = putStrLn ("FAIL " ++ name)
 
 port_bounds : Bool
 port_bounds =
-  case ( destination_port_from_integer 1
-       , destination_port_from_integer 65535
-       , destination_port_from_integer 0
-       , destination_port_from_integer 65536
+  case ( destination_port_from_number 1
+       , destination_port_from_number 65535
+       , destination_port_from_number 0
+       , destination_port_from_number 65536
        ) of
     (Right low, Right high, Left _, Left _) =>
       destination_port_number low == 1 &&
@@ -26,10 +26,10 @@ port_bounds =
 
 status_bounds : Bool
 status_bounds =
-  case ( http_status_code_from_integer 100
-       , http_status_code_from_integer 599
-       , http_status_code_from_integer 99
-       , http_status_code_from_integer 600
+  case ( http_status_code_from_number 100
+       , http_status_code_from_number 599
+       , http_status_code_from_number 99
+       , http_status_code_from_number 600
        ) of
     (Right low, Right high, Left _, Left _) =>
       http_status_number low == 100 && http_status_number high == 599
@@ -44,7 +44,7 @@ not_found_semantics =
 
 unregistered_4xx_class : Bool
 unregistered_4xx_class =
-  case http_status_code_from_integer 471 of
+  case http_status_code_from_number 471 of
     Left _ => False
     Right status =>
       case http_status_class_of status of
