@@ -24,8 +24,8 @@ destination_port_from_integer number =
     else Left "destination port must be between 1 and 65535"
 
 public export
-destination_port_number : DestinationPort → Int
-destination_port_number (MkDestinationPort number) = cast number
+destination_port_number : DestinationPort → Bits16
+destination_port_number (MkDestinationPort number) = number
 
 public export
 http_destination_port : DestinationPort
