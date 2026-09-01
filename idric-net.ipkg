@@ -3,4 +3,4 @@ package idric_net
 version = 0.1.0
 sourcedir = "."
 
-modules = Network.Types, Network.URL, Network.HTTP, Network.Transport
+modules = Network.Types, Network.URL, Network.HTTP, Network.Transport, Network.SMS

@@ -41,6 +41,25 @@ It provides:
 - `HttpHeader`, `HttpBody`, `ByteCount`, request rendering, and UTF-8 byte length;
 - the eight-case `transport_result` used by ICU instead of a generic integer.
 
+## SMS foundation
+
+`Network.SMS` keeps telephone addresses separate from network principals and
+defines the first deterministic request language:
+
+```text
+ECHO <text>
+REMIND HH:MM
+CANCEL <event-id>
+STOP
+```
+
+The parser accepts exact 24-hour times and rejects casual language.  A future
+local model may translate casual language into this text, but its output still
+passes through this parser before any effect.  Reminder authorization retains
+the principal, destination, request time, inbound message id, original request,
+and authorized event id.  The included fake transport makes the message boundary
+executable without a provider account or a real telephone number.
+
 The nominal/checking wrappers in this initial implementation are a compatibility bridge, not the final Idriç language design. The target is first-class constrained values whose facts survive lowering.
 
 ## Native transport boundary
