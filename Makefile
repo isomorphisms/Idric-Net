@@ -1,7 +1,7 @@
 IDRIC ?= idris2
 IDRIC_SOURCES := $(wildcard Network/*.idric Mirage/*.idric tests/*.idric)
 
-.PHONY: all test check-vocabulary clean
+.PHONY: all test sms-request check-vocabulary clean
 
 all: check-vocabulary
 	$(IDRIC) --build idric-net.ipkg
@@ -19,6 +19,11 @@ check-vocabulary:
 test: all
 	$(IDRIC) tests/NetworkTests.idric -o idric-net-tests
 	./build/exec/idric-net-tests
+	$(IDRIC) tests/SMSTests.idric -o idric-net-sms-tests
+	./build/exec/idric-net-sms-tests
+
+sms-request: all
+	$(IDRIC) tools/SmsRequest.idric -o idric-sms-request
 
 clean:
 	rm -rf build
