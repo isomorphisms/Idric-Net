@@ -17,8 +17,8 @@ record DestinationPort where
   destination_port_bits : Bits16
 
 public export
-destination_port_from_integer : Integer → Either String DestinationPort
-destination_port_from_integer number =
+destination_port_from_number : ℕ → Either String DestinationPort
+destination_port_from_number number =
   if number >= 1 && number <= 65535
     then Right (MkDestinationPort (cast number))
     else Left "destination port must be between 1 and 65535"
