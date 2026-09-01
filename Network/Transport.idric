@@ -14,25 +14,47 @@ choice transport_result one_of
   redirect_failed
 
 public export
-transport_result_from_native_code : Int → Either String transport_result
-transport_result_from_native_code 0 = Right transport_ok
-transport_result_from_native_code 2 = Right invalid_request
-transport_result_from_native_code 3 = Right invalid_endpoint
-transport_result_from_native_code 4 = Right tcp_connect_failed
-transport_result_from_native_code 5 = Right tls_connect_failed
-transport_result_from_native_code 6 = Right request_write_failed
-transport_result_from_native_code 7 = Right response_read_failed
-transport_result_from_native_code 8 = Right redirect_failed
-transport_result_from_native_code _ =
-  Left "native transport returned an unknown result code"
+record NativeTransportCode where
+  constructor MkNativeTransportCode
+  native_transport_code_bits : Bits8
 
 public export
-process_exit_status : transport_result → Int
-process_exit_status transport_ok = 0
-process_exit_status invalid_request = 2
-process_exit_status invalid_endpoint = 3
-process_exit_status tcp_connect_failed = 4
-process_exit_status tls_connect_failed = 5
-process_exit_status request_write_failed = 6
-process_exit_status response_read_failed = 7
-process_exit_status redirect_failed = 8
+choice transport_decode one_of
+  known_transport_result transport_result
+  unknown_transport_code NativeTransportCode
+
+public export
+transport_result_from_native_code : NativeTransportCode → transport_decode
+transport_result_from_native_code (MkNativeTransportCode 0) =
+  known_transport_result transport_ok
+transport_result_from_native_code (MkNativeTransportCode 2) =
+  known_transport_result invalid_request
+transport_result_from_native_code (MkNativeTransportCode 3) =
+  known_transport_result invalid_endpoint
+transport_result_from_native_code (MkNativeTransportCode 4) =
+  known_transport_result tcp_connect_failed
+transport_result_from_native_code (MkNativeTransportCode 5) =
+  known_transport_result tls_connect_failed
+transport_result_from_native_code (MkNativeTransportCode 6) =
+  known_transport_result request_write_failed
+transport_result_from_native_code (MkNativeTransportCode 7) =
+  known_transport_result response_read_failed
+transport_result_from_native_code (MkNativeTransportCode 8) =
+  known_transport_result redirect_failed
+transport_result_from_native_code code = unknown_transport_code code
+
+public export
+record ProcessExitStatus where
+  constructor MkProcessExitStatus
+  process_exit_status_bits : Bits8
+
+public export
+process_exit_status : transport_result → ProcessExitStatus
+process_exit_status transport_ok = MkProcessExitStatus 0
+process_exit_status invalid_request = MkProcessExitStatus 2
+process_exit_status invalid_endpoint = MkProcessExitStatus 3
+process_exit_status tcp_connect_failed = MkProcessExitStatus 4
+process_exit_status tls_connect_failed = MkProcessExitStatus 5
+process_exit_status request_write_failed = MkProcessExitStatus 6
+process_exit_status response_read_failed = MkProcessExitStatus 7
+process_exit_status redirect_failed = MkProcessExitStatus 8
