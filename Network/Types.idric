@@ -11,7 +11,7 @@ public export
 host_name_string : HostName → String
 host_name_string (MkHostName text) = text
 
-public export
+export
 record DestinationPort where
   constructor MkDestinationPort
   destination_port_bits : Bits16

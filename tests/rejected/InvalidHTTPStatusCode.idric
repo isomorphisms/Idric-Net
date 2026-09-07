@@ -1,0 +1,6 @@
+module InvalidHTTPStatusCode
+
+import Network.HTTP
+
+invalid_status : HTTPStatusCode
+invalid_status = MkHTTPStatusCode 600
