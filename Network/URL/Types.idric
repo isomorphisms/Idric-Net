@@ -1,0 +1,47 @@
+module Network.URL.Types
+
+import Network.Types
+
+%default total
+
+public export
+choice url one_of
+  http_url HostName DestinationPort RequestTarget
+  https_url HostName DestinationPort RequestTarget
+
+public export
+host : url → HostName
+host (http_url name _ _) = name
+host (https_url name _ _) = name
+
+public export
+port : url → DestinationPort
+port (http_url _ destination_port _) = destination_port
+port (https_url _ destination_port _) = destination_port
+
+public export
+target : url → RequestTarget
+target (http_url _ _ request_target) = request_target
+target (https_url _ _ request_target) = request_target
+
+public export
+secure : url → Bool
+secure (http_url _ _ _) = False
+secure (https_url _ _ _) = True
+
+public export
+origin : url → Origin
+origin (http_url name destination_port _) =
+  MkOrigin http_scheme name destination_port
+origin (https_url name destination_port _) =
+  MkOrigin https_scheme name destination_port
+
+public export
+authority : url → String
+authority value =
+  let number = destination_port_number (port value)
+      default_number = if secure value then 443 else 80
+      name = host_name_text (host value)
+  in if number == default_number
+       then name
+       else name ++ ":" ++ show number
