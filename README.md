@@ -64,9 +64,13 @@ Design research and comparison material lives under `research/`:
 
 These are complementary: implementation precedents inform the shape of the interface; standards and registries define protocol meaning and wire encodings; the compiler supplies reusable mechanisms for expressing the resulting constraints.
 
-## Compiler pin
+## Compiler dependency
 
-CI uses the exact Idriç compiler revision recorded in `.github/workflows/ci.yml`. `.idric` source is mapped to GitHub Linguist's Idris grammar through `.gitattributes`.
+CI follows the declared Idriç branch `Idriç`, resolves it on every run, and
+records the exact SHA that actually ran. A compiler/library incompatibility is
+a failing current-head receipt; CI does not retry an older green revision.
+`.idric` source is mapped to GitHub Linguist's Idris grammar through
+`.gitattributes`.
 
 ## ai-ci
 
