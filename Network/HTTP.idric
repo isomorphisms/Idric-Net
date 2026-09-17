@@ -49,7 +49,7 @@ method_is_idempotent options_method = True
 method_is_idempotent trace_method = True
 method_is_idempotent _ = False
 
-public export
+export
 record HTTPStatusCode where
   constructor MkHTTPStatusCode
   http_status_bits : Bits16

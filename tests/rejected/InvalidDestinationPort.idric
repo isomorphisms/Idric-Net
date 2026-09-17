@@ -1,0 +1,6 @@
+module InvalidDestinationPort
+
+import Network.Types
+
+invalid_port : DestinationPort
+invalid_port = MkDestinationPort 0

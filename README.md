@@ -43,6 +43,13 @@ It provides:
 
 The nominal/checking wrappers in this initial implementation are a compatibility bridge, not the final Idriç language design. The target is first-class constrained values whose facts survive lowering.
 
+The compatibility bridge still establishes a real boundary: raw
+`MkDestinationPort` and `MkHTTPStatusCode` construction is private. Runtime
+inputs use `destination_port_from_number` and `http_status_code_from_number`;
+wire and FFI adapters use the corresponding numeric projections only after a
+successful check. `make test` also compiles refusal fixtures to keep that
+boundary from becoming porous.
+
 ## Native transport boundary
 
 ICU currently owns the live C/OpenSSL socket implementation. That remains an honest temporary provider while the reusable interface is extracted. `Idric-Net` must not claim pure-Idriç TLS or socket ownership until the implementation actually moves.
