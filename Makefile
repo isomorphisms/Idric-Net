@@ -1,5 +1,5 @@
 IDRIC ?= idris2
-IDRIC_SOURCES := $(wildcard Network/*.idric Mirage/*.idric tests/*.idric)
+IDRIC_SOURCES := $(wildcard Network/*.idric Network/*/*.idric Mirage/*.idric tests/*.idric)
 
 .PHONY: all test check-vocabulary check-type-boundaries clean
 

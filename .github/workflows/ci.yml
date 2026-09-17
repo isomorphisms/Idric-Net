@@ -30,7 +30,7 @@ jobs:
 
       - name: Build current Idriç and run Idric-Net semantic tests
         env:
-          IDRIS2_PREFIX: ${{ github.workspace }}/.tools/Idric/bootstrap-build
+          IDRIS2_PREFIX: ${{ github.workspace }}/.tools/Idric/_/bootstrap-build
         run: ci/run-current-head.sh
 
       - name: Verify ai-ci contract

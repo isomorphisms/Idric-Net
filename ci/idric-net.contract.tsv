@@ -7,4 +7,4 @@ contains	IDRICNET-NOT-FOUND	Network/HTTP.idric	not_found = MkHTTPStatusCode 404
 contains	IDRICNET-STATUS-CLASS	Network/HTTP.idric	client_error
 contains	IDRICNET-TRANSPORT-CHOICE	Network/Transport.idric	choice transport_result one_of
 not_contains	IDRICNET-NO-EXIT-INT-RECORD	Network/Transport.idric	record TransportExitStatus
-contains	IDRICNET-PACKAGE	idric-net.ipkg	modules = Network.Types, Network.URL, Network.HTTP, Network.Transport
+contains	IDRICNET-PACKAGE	idric-net.ipkg	modules = Network.Types, Network.URL.Types, Network.URL.Parse, Network.URL, Network.HTTP, Network.Transport

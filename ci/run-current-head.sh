@@ -8,8 +8,8 @@ scheme=${IDRIC_SCHEME:-scheme}
 case "$scheme" in
   */*) PATH="$(dirname -- "$scheme"):$PATH"; export PATH ;;
 esac
-compiler="$idric_repo/build/exec/idris2"
-idris_prefix=${IDRIS2_PREFIX:-"$idric_repo/bootstrap-build"}
+compiler="$idric_repo/_/build/exec/idris2"
+idris_prefix=${IDRIS2_PREFIX:-"$idric_repo/_/bootstrap-build"}
 LD_LIBRARY_PATH="$idris_prefix/idris2-0.8.0/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export IDRIS2_PREFIX="$idris_prefix" LD_LIBRARY_PATH
 receipt="$repo_root/build/current-head-receipt.tsv"
@@ -68,7 +68,7 @@ trap fail_receipt ERR
 
 current_stage=compiler_build
 if [[ ! -x "$compiler" ]]; then
-  make -C "$idric_repo" bootstrap SCHEME="$scheme" 2>&1 | tee -a "$log"
+  make -C "$idric_repo/_" bootstrap SCHEME="$scheme" 2>&1 | tee -a "$log"
 fi
 "$compiler" --version 2>&1 | tee -a "$log"
 passed="$passed compiler_build"
