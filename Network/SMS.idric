@@ -41,11 +41,19 @@ record ResolvedSmsSender where
   resolved_principal : NetworkPrincipal
   resolved_address : TelephoneAddress
 
-public export
+export
 record ReminderClockTime where
   constructor MkReminderClockTime
-  reminder_hour : Bits8
-  reminder_minute : Bits8
+  reminder_hour_bits : Bits8
+  reminder_minute_bits : Bits8
+
+public export
+reminder_hour : ReminderClockTime → Bits8
+reminder_hour (MkReminderClockTime hour _) = hour
+
+public export
+reminder_minute : ReminderClockTime → Bits8
+reminder_minute (MkReminderClockTime _ minute) = minute
 
 public export
 reminder_clock_time : ℕ → ℕ → Either String ReminderClockTime
@@ -125,7 +133,7 @@ public export
 render_sms_request : sms_request → String
 render_sms_request (echo_request body) = "ECHO " ++ sms_body_text body
 render_sms_request (remind_request clock) =
-  "REMIND " ++ two_digit clock.reminder_hour ++ ":" ++ two_digit clock.reminder_minute
+  "REMIND " ++ two_digit (reminder_hour clock) ++ ":" ++ two_digit (reminder_minute clock)
 render_sms_request (cancel_request event_id) = "CANCEL " ++ event_id
 render_sms_request stop_request = "STOP"
 
