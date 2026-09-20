@@ -1,0 +1,112 @@
+module Main
+
+import Network.SMS
+import System
+
+%default total
+
+check : String → Bool → IO ()
+check name True = putStrLn ("ok   " ++ name)
+check name False = putStrLn ("FAIL " ++ name)
+
+remind_parses : Bool
+remind_parses =
+  case parse_sms_request "REMIND 15:00" of
+    Right (remind_request clock) ⇒
+      reminder_hour clock == 15 && reminder_minute clock == 0 &&
+      render_sms_request (remind_request clock) == "REMIND 15:00"
+    _ ⇒ False
+
+invalid_times_fail : Bool
+invalid_times_fail =
+  case ( parse_sms_request "REMIND 25:00"
+       , parse_sms_request "REMIND 3:00"
+       , parse_sms_request "REMIND noon"
+       ) of
+    (Left _, Left _, Left _) ⇒ True
+    _ ⇒ False
+
+echo_parses : Bool
+echo_parses =
+  case parse_sms_request "ECHO hey" of
+    Right (echo_request body) ⇒ sms_body_text body == "hey"
+    _ ⇒ False
+
+cancellation_parses : Bool
+cancellation_parses =
+  case ( parse_sms_request "CANCEL evt_000001"
+       , parse_sms_request "CANCEL ../000001"
+       ) of
+    (Right (cancel_request "evt_000001"), Left _) ⇒ True
+    _ ⇒ False
+
+stop_parses : Bool
+stop_parses =
+  case parse_sms_request "STOP" of
+    Right stop_request ⇒ True
+    _ ⇒ False
+
+natural_language_is_not_an_effect : Bool
+natural_language_is_not_an_effect =
+  case parse_sms_request "remind me at 3" of
+    Left _ ⇒ True
+    _ ⇒ False
+
+principal_is_not_an_address : Bool
+principal_is_not_an_address =
+  let principal = MkNetworkPrincipal "000001" public_correspondent
+      address = MkTelephoneAddress "+15550000001"
+      sender = MkResolvedSmsSender principal address
+  in principal_id sender.resolved_principal == "000001" &&
+     telephone_address_text sender.resolved_address == "+15550000001"
+
+authorization_is_traceable : Bool
+authorization_is_traceable =
+  let principal = MkNetworkPrincipal "000001" registered_principal
+      address = MkTelephoneAddress "+15550000001"
+      clock = MkReminderClockTime 15 0
+      authorization =
+        MkReminderAuthorization
+          "evt_000001"
+          principal
+          address
+          "2026-09-01T14:00:00Z"
+          "in_000001"
+          (MkSmsBody "REMIND 15:00")
+          clock
+  in authorization.authorized_event_id == "evt_000001" &&
+     authorization.authorization_inbound_id == "in_000001" &&
+     sms_body_text authorization.authorization_original_request == "REMIND 15:00"
+
+fake_transport_sends : IO Bool
+fake_transport_sends = do
+  let principal = MkNetworkPrincipal "000001" registered_principal
+  let outbound =
+        MkOutboundSms
+          "evt_000001"
+          principal
+          (MkTelephoneAddress "+15550000001")
+          minimum_reminder_message
+  result ← sms_send (fake_sms_transport "fake_000001") outbound
+  case result of
+    sms_sent receipt ⇒ pure (receipt == "fake_000001")
+    sms_send_failed _ ⇒ pure False
+
+main : IO ()
+main = do
+  check "REMIND parses deterministically" remind_parses
+  check "invalid times fail" invalid_times_fail
+  check "ECHO parses" echo_parses
+  check "CANCEL rejects unsafe event ids" cancellation_parses
+  check "STOP parses" stop_parses
+  check "natural language cannot directly cause an effect" natural_language_is_not_an_effect
+  check "network principal is distinct from telephone address" principal_is_not_an_address
+  check "authorization retains inbound provenance" authorization_is_traceable
+  fake_sent ← fake_transport_sends
+  check "fake transport returns a receipt" fake_sent
+  if remind_parses && invalid_times_fail && echo_parses &&
+     cancellation_parses && stop_parses &&
+     natural_language_is_not_an_effect && principal_is_not_an_address &&
+     authorization_is_traceable && fake_sent
+    then pure ()
+    else exitFailure
