@@ -62,21 +62,23 @@ principal_is_not_an_address =
 
 authorization_is_traceable : Bool
 authorization_is_traceable =
-  let principal = MkNetworkPrincipal "000001" registered_principal
-      address = MkTelephoneAddress "+15550000001"
-      clock = MkReminderClockTime 15 0
-      authorization =
-        MkReminderAuthorization
-          "evt_000001"
-          principal
-          address
-          "2026-09-01T14:00:00Z"
-          "in_000001"
-          (MkSmsBody "REMIND 15:00")
-          clock
-  in authorization.authorized_event_id == "evt_000001" &&
-     authorization.authorization_inbound_id == "in_000001" &&
-     sms_body_text authorization.authorization_original_request == "REMIND 15:00"
+  case reminder_clock_time 15 0 of
+    Left _ ⇒ False
+    Right clock ⇒
+      let principal = MkNetworkPrincipal "000001" registered_principal
+          address = MkTelephoneAddress "+15550000001"
+          authorization =
+            MkReminderAuthorization
+              "evt_000001"
+              principal
+              address
+              "2026-09-01T14:00:00Z"
+              "in_000001"
+              (MkSmsBody "REMIND 15:00")
+              clock
+      in authorization.authorized_event_id == "evt_000001" &&
+         authorization.authorization_inbound_id == "in_000001" &&
+         sms_body_text authorization.authorization_original_request == "REMIND 15:00"
 
 fake_transport_sends : IO Bool
 fake_transport_sends = do
