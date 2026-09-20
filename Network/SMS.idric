@@ -1,0 +1,169 @@
+module Network.SMS
+
+%default total
+
+public export
+record TelephoneAddress where
+  constructor MkTelephoneAddress
+  telephone_address_text : String
+
+public export
+telephone_address_string : TelephoneAddress → String
+telephone_address_string (MkTelephoneAddress text) = text
+
+public export
+choice principal_kind one_of
+  public_correspondent
+  registered_principal
+
+public export
+record NetworkPrincipal where
+  constructor MkNetworkPrincipal
+  principal_id : String
+  principal_class : principal_kind
+
+public export
+record SmsBody where
+  constructor MkSmsBody
+  sms_body_text : String
+
+public export
+record InboundSms where
+  constructor MkInboundSms
+  inbound_id : String
+  inbound_sender : TelephoneAddress
+  inbound_received_at : String
+  inbound_body : SmsBody
+
+public export
+record ResolvedSmsSender where
+  constructor MkResolvedSmsSender
+  resolved_principal : NetworkPrincipal
+  resolved_address : TelephoneAddress
+
+public export
+record ReminderClockTime where
+  constructor MkReminderClockTime
+  reminder_hour : Bits8
+  reminder_minute : Bits8
+
+public export
+reminder_clock_time : ℕ → ℕ → Either String ReminderClockTime
+reminder_clock_time hour minute =
+  if hour <= 23 && minute <= 59
+    then Right (MkReminderClockTime (cast hour) (cast minute))
+    else Left "reminder time must be a 24-hour HH:MM time"
+
+public export
+choice sms_request one_of
+  echo_request SmsBody
+  remind_request ReminderClockTime
+  cancel_request String
+  stop_request
+
+digit_value : Char → Maybe ℕ
+digit_value character =
+  if character >= '0' && character <= '9'
+    then Just (cast (ord character - ord '0'))
+    else Nothing
+
+parse_clock_characters : List Char → Either String ReminderClockTime
+parse_clock_characters [hour_tens, hour_ones, ':', minute_tens, minute_ones] =
+  case ( digit_value hour_tens
+       , digit_value hour_ones
+       , digit_value minute_tens
+       , digit_value minute_ones
+       ) of
+    (Just h0, Just h1, Just m0, Just m1) ⇒
+      reminder_clock_time (h0 * 10 + h1) (m0 * 10 + m1)
+    _ ⇒ Left "reminder time must be a 24-hour HH:MM time"
+parse_clock_characters _ = Left "reminder time must be a 24-hour HH:MM time"
+
+strip_prefix : List Char → List Char → Maybe (List Char)
+strip_prefix [] input = Just input
+strip_prefix _ [] = Nothing
+strip_prefix (wanted :: wanted_rest) (actual :: actual_rest) =
+  if wanted == actual
+    then strip_prefix wanted_rest actual_rest
+    else Nothing
+
+safe_event_id_character : Char → Bool
+safe_event_id_character character =
+  (character >= 'a' && character <= 'z') ||
+  (character >= 'A' && character <= 'Z') ||
+  (character >= '0' && character <= '9') ||
+  character == '-' || character == '_'
+
+safe_event_id_characters : List Char → Bool
+safe_event_id_characters [] = False
+safe_event_id_characters characters = all safe_event_id_character characters
+
+public export
+parse_sms_request : String → Either String sms_request
+parse_sms_request text =
+  if text == "STOP"
+    then Right stop_request
+    else case strip_prefix (unpack "ECHO ") (unpack text) of
+      Just [] ⇒ Left "ECHO requires a message"
+      Just message ⇒ Right (echo_request (MkSmsBody (pack message)))
+      Nothing ⇒ case strip_prefix (unpack "REMIND ") (unpack text) of
+        Just clock_text ⇒ case parse_clock_characters clock_text of
+          Left problem ⇒ Left problem
+          Right clock ⇒ Right (remind_request clock)
+        Nothing ⇒ case strip_prefix (unpack "CANCEL ") (unpack text) of
+          Just event_id ⇒
+            if safe_event_id_characters event_id
+              then Right (cancel_request (pack event_id))
+              else Left "CANCEL requires an event id containing only letters, digits, '-' or '_'"
+          Nothing ⇒ Left "supported requests: ECHO <text>, REMIND HH:MM, CANCEL <event-id>, STOP"
+
+two_digit : Bits8 → String
+two_digit number =
+  if number < 10 then "0" ++ show number else show number
+
+public export
+render_sms_request : sms_request → String
+render_sms_request (echo_request body) = "ECHO " ++ sms_body_text body
+render_sms_request (remind_request clock) =
+  "REMIND " ++ two_digit clock.reminder_hour ++ ":" ++ two_digit clock.reminder_minute
+render_sms_request (cancel_request event_id) = "CANCEL " ++ event_id
+render_sms_request stop_request = "STOP"
+
+public export
+record ReminderAuthorization where
+  constructor MkReminderAuthorization
+  authorized_event_id : String
+  authorized_principal : NetworkPrincipal
+  authorized_destination : TelephoneAddress
+  authorization_requested_at : String
+  authorization_inbound_id : String
+  authorization_original_request : SmsBody
+  authorization_clock_time : ReminderClockTime
+
+public export
+record OutboundSms where
+  constructor MkOutboundSms
+  outbound_event_id : String
+  outbound_principal : NetworkPrincipal
+  outbound_destination : TelephoneAddress
+  outbound_body : SmsBody
+
+public export
+minimum_reminder_message : SmsBody
+minimum_reminder_message = MkSmsBody "hey"
+
+public export
+choice sms_transport_result one_of
+  sms_sent String
+  sms_send_failed String
+
+public export
+record SmsTransport where
+  constructor MkSmsTransport
+  sms_transport_name : String
+  sms_send : OutboundSms → IO sms_transport_result
+
+public export
+fake_sms_transport : String → SmsTransport
+fake_sms_transport receipt =
+  MkSmsTransport "fake" (\_ ⇒ pure (sms_sent receipt))
