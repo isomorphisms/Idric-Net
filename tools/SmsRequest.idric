@@ -1,0 +1,20 @@
+module Main
+
+import Network.SMS
+import System
+
+%default total
+
+main : IO ()
+main = do
+  arguments ← getArgs
+  case arguments of
+    [program, request_text] ⇒
+      case parse_sms_request request_text of
+        Left problem ⇒ do
+          putStrLn ("rejected: " ++ problem)
+          exitFailure
+        Right request ⇒ putStrLn (render_sms_request request)
+    _ ⇒ do
+      putStrLn "usage: idric-sms-request '<request>'"
+      exitFailure
