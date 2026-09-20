@@ -43,3 +43,6 @@ expect_rejected \
 expect_rejected \
   tests/rejected/InvalidHTTPStatusCode.idric \
   "Network.HTTP.MkHTTPStatusCode is private"
+expect_rejected \
+  tests/rejected/InvalidReminderClockTime.idric \
+  "Network.SMS.MkReminderClockTime is private"
