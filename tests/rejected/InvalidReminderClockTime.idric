@@ -1,0 +1,6 @@
+module InvalidReminderClockTime
+
+import Network.SMS
+
+invalid_time : ReminderClockTime
+invalid_time = MkReminderClockTime 25 0
