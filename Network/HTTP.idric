@@ -311,15 +311,6 @@ validate_request_headers (current :: rest) =
     Just problem => Just problem
     Nothing => validate_request_headers rest
 
-public export
-render_request_header : request_header → String
-render_request_header value = render_header (request_header_value value)
-
-render_request_headers : List request_header → String
-render_request_headers [] = ""
-render_request_headers (current :: rest) =
-  render_request_header current ++ render_request_headers rest
-
 optional_default_header :
   String → String → List request_header → String
 optional_default_header name value headers =
@@ -341,6 +332,15 @@ render_header (MkHttpHeader name value) =
 render_headers : List HttpHeader → String
 render_headers [] = ""
 render_headers (current :: rest) = render_header current ++ render_headers rest
+
+public export
+render_request_header : request_header → String
+render_request_header value = render_header (request_header_value value)
+
+render_request_headers : List request_header → String
+render_request_headers [] = ""
+render_request_headers (current :: rest) =
+  render_request_header current ++ render_request_headers rest
 
 common_headers : url → List HttpHeader
 common_headers target_url =
