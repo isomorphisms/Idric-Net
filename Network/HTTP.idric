@@ -229,6 +229,102 @@ public export
 header : String → String → HttpHeader
 header name value = MkHttpHeader (MkHeaderName name) (MkHeaderValue value)
 
+public export
+choice request_header one_of
+  ordinary_request_header HttpHeader
+  declared_credential_header HttpHeader
+
+request_header_value : request_header → HttpHeader
+request_header_value (ordinary_request_header value) = value
+request_header_value (declared_credential_header value) = value
+
+request_header_name : request_header → HeaderName
+request_header_name value = header_name (request_header_value value)
+
+header_name_character : Char → Bool
+header_name_character character =
+  (character >= 'A' && character <= 'Z') ||
+  (character >= 'a' && character <= 'z') ||
+  (character >= '0' && character <= '9') ||
+  character == '-' || character == '_'
+
+header_value_character : Char → Bool
+header_value_character character =
+  character == '\t' || (ord character >= 32 && ord character < 127)
+
+all_characters : (Char → Bool) → List Char → Bool
+all_characters predicate [] = True
+all_characters predicate (character :: rest) =
+  predicate character && all_characters predicate rest
+
+header_problem : HttpHeader → Maybe String
+header_problem current =
+  let name = header_name_text (header_name current)
+      value = header_value_text (header_value current)
+  in if name == ""
+    then Just "HTTP header name is empty"
+    else if not (all_characters header_name_character (unpack name))
+      then Just "HTTP header name must contain only ASCII letters, digits, '-' or '_'"
+      else if not (all_characters header_value_character (unpack value))
+        then Just "HTTP header value must be ASCII without control characters"
+        else case classify_header (header_name current) of
+          framing_header => Just ("Idric-Net owns HTTP framing header: " ++ name)
+          _ => Nothing
+
+public export
+make_header : String → String → Either String request_header
+make_header name value =
+  let built = header name value in
+    case header_problem built of
+      Nothing => Right (ordinary_request_header built)
+      Just problem => Left problem
+
+public export
+make_credential_header : String → String → Either String request_header
+make_credential_header name value =
+  let built = header name value in
+    case header_problem built of
+      Nothing => Right (declared_credential_header built)
+      Just problem => Left problem
+
+public export
+credential_header_names : List request_header → List HeaderName
+credential_header_names [] = []
+credential_header_names (ordinary_request_header _ :: rest) =
+  credential_header_names rest
+credential_header_names (declared_credential_header current :: rest) =
+  header_name current :: credential_header_names rest
+
+request_header_named : String → request_header → Bool
+request_header_named wanted current =
+  header_named wanted (request_header_name current)
+
+has_request_header : String → List request_header → Bool
+has_request_header _ [] = False
+has_request_header wanted (current :: rest) =
+  request_header_named wanted current || has_request_header wanted rest
+
+validate_request_headers : List request_header → Maybe String
+validate_request_headers [] = Nothing
+validate_request_headers (current :: rest) =
+  case header_problem (request_header_value current) of
+    Just problem => Just problem
+    Nothing => validate_request_headers rest
+
+optional_default_header :
+  String → String → List request_header → String
+optional_default_header name value headers =
+  if has_request_header name headers
+    then ""
+    else name ++ ": " ++ value ++ "\r\n"
+
+request_headers_before_body : url → List request_header → String
+request_headers_before_body target_url headers =
+  optional_default_header "Host" (authority target_url) headers ++
+  "Connection: close\r\n" ++
+  optional_default_header "Accept-Encoding" "identity" headers ++
+  optional_default_header "User-Agent" "idric-net/0.1" headers
+
 render_header : HttpHeader → String
 render_header (MkHttpHeader name value) =
   header_name_text name ++ ": " ++ header_value_text value ++ "\r\n"
@@ -236,6 +332,15 @@ render_header (MkHttpHeader name value) =
 render_headers : List HttpHeader → String
 render_headers [] = ""
 render_headers (current :: rest) = render_header current ++ render_headers rest
+
+public export
+render_request_header : request_header → String
+render_request_header value = render_header (request_header_value value)
+
+render_request_headers : List request_header → String
+render_request_headers [] = ""
+render_request_headers (current :: rest) =
+  render_request_header current ++ render_request_headers rest
 
 common_headers : url → List HttpHeader
 common_headers target_url =
@@ -312,6 +417,50 @@ render_request_parts (post target_url body) =
         render_headers post_headers ++
         "\r\n"
   in MkRenderedRequest (MkHttpRequestHead wire_head) body body_length
+
+public export
+render_request_parts_with_headers :
+  request → List request_header → Either String RenderedRequest
+render_request_parts_with_headers value headers =
+  case validate_request_headers headers of
+    Just problem => Left problem
+    Nothing =>
+      case value of
+        get target_url =>
+          let wire_head =
+                request_line get_method target_url ++
+                request_headers_before_body target_url headers ++
+                render_request_headers headers ++
+                "\r\n"
+          in Right
+               (MkRenderedRequest
+                 (MkHttpRequestHead wire_head)
+                 (MkHttpBody "")
+                 (MkByteCount 0))
+        post target_url body =>
+          let body_length = utf8_byte_length (http_body_text body)
+              wire_head =
+                request_line post_method target_url ++
+                request_headers_before_body target_url headers ++
+                optional_default_header
+                  "Content-Type" "text/plain; charset=utf-8" headers ++
+                render_request_headers headers ++
+                "Content-Length: " ++ show (byte_count_value body_length) ++ "\r\n" ++
+                "\r\n"
+          in Right
+               (MkRenderedRequest
+                 (MkHttpRequestHead wire_head)
+                 body
+                 body_length)
+
+public export
+render_request_with_headers :
+  request → List request_header → Either String String
+render_request_with_headers value headers =
+  case render_request_parts_with_headers value headers of
+    Left problem => Left problem
+    Right (MkRenderedRequest wire_head body _) =>
+      Right (http_request_head_text wire_head ++ http_body_text body)
 
 public export
 render_request : request → String
