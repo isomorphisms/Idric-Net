@@ -38,7 +38,7 @@ It provides:
 - `HTTPStatusCode` with the valid 100..599 wire domain and named values such as `not_found = 404`;
 - status-class derivation, so any 4xx code is a `client_error` even when unregistered;
 - semantic HTTP methods with safe/idempotent properties for the core registered methods used here;
-- `HttpHeader`, `HttpBody`, `ByteCount`, request rendering, and UTF-8 byte length;
+- `HttpHeader`, checked caller request headers, explicit credential-sensitive header metadata, `HttpBody`, `ByteCount`, request rendering, and UTF-8 byte length;
 - the eight-case `transport_result` used by ICU instead of a generic integer.
 
 ## SMS foundation
