@@ -311,6 +311,7 @@ validate_request_headers (current :: rest) =
     Just problem => Just problem
     Nothing => validate_request_headers rest
 
+public export
 render_request_header : request_header → String
 render_request_header value = render_header (request_header_value value)
 
