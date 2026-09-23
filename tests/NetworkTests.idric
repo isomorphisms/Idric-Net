@@ -114,6 +114,70 @@ render_utf8_post =
           http_body_text body == "café" &&
           byte_count_value body_length == 5
 
+custom_header_rendering : Bool
+custom_header_rendering =
+  case parse_url "https://example.com/data" of
+    Left _ => False
+    Right target_url =>
+      case make_header "X-Trace" "keep-me" of
+        Left _ => False
+        Right custom =>
+          render_request_with_headers (get target_url) [custom] ==
+            Right
+              ("GET /data HTTP/1.0\r\n" ++
+               "Host: example.com\r\n" ++
+               "Connection: close\r\n" ++
+               "Accept-Encoding: identity\r\n" ++
+               "User-Agent: idric-net/0.1\r\n" ++
+               "X-Trace: keep-me\r\n" ++
+               "\r\n")
+
+credential_header_metadata : Bool
+credential_header_metadata =
+  case ( make_header "X-Api-Key" "secret"
+       , make_credential_header "X-Api-Key" "secret"
+       ) of
+    (Right ordinary, Right credential) =>
+      render_request_header ordinary == render_request_header credential &&
+      case credential_header_names [ordinary, credential] of
+        [name] => header_name_text name == "X-Api-Key"
+        _ => False
+    _ => False
+
+reject_header_value_injection : Bool
+reject_header_value_injection =
+  case make_header "X-Test" "safe\r\nX-Evil: yes" of
+    Left _ => True
+    Right _ => False
+
+reject_framing_header : Bool
+reject_framing_header =
+  case make_header "Content-Length" "999" of
+    Left _ => True
+    Right _ => False
+
+replace_default_content_type : Bool
+replace_default_content_type =
+  case parse_url "https://example.com/message" of
+    Left _ => False
+    Right target_url =>
+      case make_header "Content-Type" "application/json" of
+        Left _ => False
+        Right custom =>
+          render_request_with_headers
+            (post target_url (MkHttpBody "{}"))
+            [custom] ==
+              Right
+                ("POST /message HTTP/1.0\r\n" ++
+                 "Host: example.com\r\n" ++
+                 "Connection: close\r\n" ++
+                 "Accept-Encoding: identity\r\n" ++
+                 "User-Agent: idric-net/0.1\r\n" ++
+                 "Content-Type: application/json\r\n" ++
+                 "Content-Length: 2\r\n" ++
+                 "\r\n" ++
+                 "{}")
+
 transport_zero : Bool
 transport_zero =
   case transport_result_from_native_code (MkNativeTransportCode 0) of
@@ -204,6 +268,11 @@ all_pass =
   utf8_lengths &&
   render_get &&
   render_utf8_post &&
+  custom_header_rendering &&
+  credential_header_metadata &&
+  reject_header_value_injection &&
+  reject_framing_header &&
+  replace_default_content_type &&
   transport_domain
 
 main : IO ()
@@ -218,5 +287,10 @@ main = do
   check "UTF-8 byte lengths" utf8_lengths
   check "GET wire rendering" render_get
   check "POST body length follows UTF-8 bytes" render_utf8_post
+  check "caller header rendering" custom_header_rendering
+  check "credential header carries policy metadata" credential_header_metadata
+  check "reject CRLF in caller header value" reject_header_value_injection
+  check "caller cannot override framing headers" reject_framing_header
+  check "caller Content-Type replaces the default" replace_default_content_type
   check "transport result and ABI codes remain distinct" transport_domain
   if all_pass then pure () else exitFailure
